@@ -69,6 +69,8 @@ def parse(template: str) -> list[str | Token]:
 def field_columns(production: Production) -> dict[str, str]:
     """DAT column names present in the production, keyed by lower-case name."""
     columns: dict[str, str] = {}
+    for name in production.dat_columns:
+        columns.setdefault(name.lower(), name)
     for doc in production.documents:
         for name in doc.fields:
             columns.setdefault(name.lower(), name)

@@ -130,6 +130,7 @@ class Production(BaseModel):
     volume_name: str = "VOL001"
     documents: list[Document] = Field(default_factory=list)
     load_report: LoadReport = Field(default_factory=LoadReport)
+    dat_columns: list[str] = Field(default_factory=list)   # loaded DAT header, in file order
 
     def pages(self):
         for doc in self.documents:

@@ -22,6 +22,7 @@ CHECKS: dict[str, Severity] = {
     "dat_no_document": "warning",
     "document_no_dat": "warning",
     "dat_field_count": "error",
+    "dat_duplicate_key": "warning",     # two DAT rows share a begin Bates; the first is used
     "unreferenced_image": "info",
     # Shared by both modes
     "image_unreadable": "error",        # image file cannot be opened or decoded
