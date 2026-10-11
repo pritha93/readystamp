@@ -73,6 +73,7 @@ class Document(BaseModel):
     seq: int = Field(ge=1)                   # 1-based order in the production
     pages: list[Page] = Field(default_factory=list)
     source_name: str                         # filename, or first image key for OPT docs
+    source_path: Path | None = None          # loose mode: the file this document came from
     fields: dict[str, str] = Field(default_factory=dict)  # DAT columns, if loaded
 
     @property
@@ -137,6 +138,35 @@ class Production(BaseModel):
     @property
     def page_count(self) -> int:
         return sum(d.page_count for d in self.documents)
+
+    def totals(self) -> dict[str, int]:
+        """Counts shown on the Review screen. PDF colour is only known after rendering."""
+        pages = list(self.pages())
+        return {
+            "documents": len(self.documents),
+            "pages": len(pages),
+            "color_pages": sum(p.is_color for p in pages),
+            "landscape_pages": sum(p.is_landscape for p in pages),
+        }
+
+    def renumber_seq(self) -> None:
+        for i, doc in enumerate(self.documents, start=1):
+            doc.seq = i
+
+    def remove_documents(self, seqs: set[int]) -> None:
+        """Drop documents by seq, with their load-report issues, and renumber seq 1..n."""
+        removed = [d for d in self.documents if d.seq in seqs]
+        removed_paths = {str(d.source_path) for d in removed if d.source_path is not None}
+        self.documents = [d for d in self.documents if d.seq not in seqs]
+        self.load_report.issues = [
+            i for i in self.load_report.issues
+            if not (i.doc_seq in seqs or (i.path is not None and i.path in removed_paths))
+        ]
+        old_to_new = {d.seq: n for n, d in enumerate(self.documents, start=1)}
+        for issue in self.load_report.issues:
+            if issue.doc_seq is not None:
+                issue.doc_seq = old_to_new.get(issue.doc_seq)
+        self.renumber_seq()
 
 
 # --------------------------------------------------------------------------
