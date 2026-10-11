@@ -38,7 +38,8 @@ def run(
     from readystamp.ingest.loose import load_loose
     from readystamp.ingest.opt import LoadError, load_opt
     from readystamp.model import Settings
-    from readystamp.output.export import RunBlocked, export
+    from readystamp.output.export import RunBlocked
+    from readystamp.server.jobs import execute
     from readystamp.presets import PresetError, load_preset
 
     def fail(lines: list[str], code: int = 2):
@@ -80,17 +81,27 @@ def run(
     t = production.totals()
     typer.echo(f"Loaded {t['documents']} document(s), {t['pages']} page(s).")
 
+    extra = [input[0]] + ([dat] if dat else []) if production.source_kind == "opt" else []
     try:
-        result = export(production, settings,
-                        progress=lambda done, total, seq: typer.echo(f"\r{done}/{total} pages", nl=False))
+        outcome = execute(production, settings, extra_inputs=extra,
+                          progress=lambda done, total, seq: typer.echo(f"\r{done}/{total} pages", nl=False))
     except RunBlocked as exc:
         fail(["Cannot run:"] + [f"  - {p}" for p in exc.problems])
+    result = outcome.result
     typer.echo("")
     typer.echo(f"Wrote {len(result.documents)} document(s), {result.pages_written} page(s) to {result.volume_dir}.")
     for name, path in result.load_files.items():
         typer.echo(f"  {name}: {path}")
+    typer.echo(f"  qc: {outcome.qc_path}")
+    typer.echo(f"  run log: {outcome.run_log_path}")
+    for check in outcome.qc.checks:
+        typer.echo(f"QC {'pass' if check.passed else 'FAIL'}: {check.name}: {check.summary}")
+        for d in check.details:
+            typer.echo(f"    {d}")
     if result.failures:
         fail(["Failed documents:"] + [f"  - {m}" for _, m in result.failures], code=1)
+    if not outcome.qc.passed:
+        raise typer.Exit(code=1)
 
 
 @app.command("make-fixtures")
