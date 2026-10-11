@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "readystamp"
+version = "0.1.0"
+description = "ReadyStamp Lite: Bates numbering and endorsement stamping for eDiscovery productions"
+requires-python = ">=3.11"
+dependencies = [
+    "pymupdf>=1.24",
+    "pillow>=10.0",
+    "pydantic>=2.5",
+    "typer>=0.12",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+readystamp = "readystamp.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["readystamp*"]
+
+[tool.setuptools.package-data]
+readystamp = ["fonts/*.ttf", "fonts/*.txt", "server/static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "tests"]
+addopts = "-p no:cacheprovider"
