@@ -51,6 +51,7 @@ class Page(BaseModel):
     is_color: bool = False                   # images: mode not '1' or 'L'; PDFs: decided at render time
     rotation: Literal[0, 90, 180, 270] = 0   # PDF /Rotate value
     new_bates: str | None = None             # assigned by numbering
+    opt_path: str | None = None              # image path exactly as written in the OPT, if loaded from one
 
     @property
     def is_pdf(self) -> bool:

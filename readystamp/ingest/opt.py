@@ -254,6 +254,7 @@ def load_opt(opt_path: Path, dat_path: Path | None = None, dat_key: str | None =
                 continue
             page.index_in_doc = len(pages) + 1
             page.original_bates = rec.key
+            page.opt_path = rec.path
             pages.append(page)
         documents.append(Document(seq=seq, pages=pages, source_name=first.key))
 
