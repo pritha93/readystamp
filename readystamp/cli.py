@@ -14,10 +14,14 @@ _FIXTURES_SCRIPT = Path(__file__).resolve().parents[1] / "tests" / "fixtures.py"
 
 
 @app.command()
-def ui() -> None:
-    """Start the local web interface (built in Milestone 7)."""
-    typer.echo("The web interface is not built yet (Milestone 7).")
-    raise typer.Exit(code=1)
+def ui(
+    port: int = typer.Option(None, "--port", help="Port on 127.0.0.1 (default: any free port)"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Do not open the browser"),
+) -> None:
+    """Start the local web interface on 127.0.0.1 and open it in the default browser."""
+    from readystamp.server.app import serve
+
+    serve(port=port, open_browser=not no_browser)
 
 
 @app.command()

@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReadyStamp Lite</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <span class="brand">ReadyStamp Lite</span>
+  <span id="prod-summary" class="muted"></span>
+</header>
+
+<div class="layout">
+  <nav class="steps" aria-label="Steps">
+    <button class="step" data-screen="load"><span class="num">1</span>Load</button>
+    <button class="step" data-screen="review"><span class="num">2</span>Review</button>
+    <button class="step" data-screen="number"><span class="num">3</span>Number</button>
+    <button class="step" data-screen="stamp"><span class="num">4</span>Stamp</button>
+    <button class="step" data-screen="output"><span class="num">5</span>Output</button>
+    <button class="step" data-screen="run"><span class="num">6</span>Run</button>
+  </nav>
+
+  <main>
+    <div id="messages" class="messages" role="alert" hidden></div>
+
+    <!-- Load -->
+    <section id="screen-load" class="screen">
+      <h1>Load documents</h1>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="loose" role="tab">Loose files</button>
+        <button class="tab" data-tab="opt" role="tab">OPT production</button>
+      </div>
+
+      <div class="tab-panel" data-panel="loose">
+        <div id="dropzone" class="dropzone" tabindex="0">
+          <p><strong>Drop files or folders here</strong></p>
+          <p class="muted">PDF, TIFF, JPG and PNG. Other file types are listed in the load report and skipped.</p>
+          <div class="row center">
+            <label class="button">Choose files<input id="pick-files" type="file" multiple hidden></label>
+            <label class="button">Choose a folder<input id="pick-folder" type="file" webkitdirectory multiple hidden></label>
+          </div>
+        </div>
+        <div id="pending" hidden>
+          <h2><span id="pending-count"></span></h2>
+          <ul id="pending-list" class="file-list"></ul>
+          <div class="row">
+            <button id="load-loose" class="primary">Load these files</button>
+            <button id="clear-pending">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-panel="opt" hidden>
+        <label class="field">OPT file
+          <span class="row"><input id="opt-path" type="text" placeholder="/path/to/VOL001/DATA/VOL001.opt">
+          <button data-browse="opt" data-target="opt-path">Browse…</button></span>
+        </label>
+        <label class="field">DAT file (optional)
+          <span class="row"><input id="dat-path" type="text" placeholder="/path/to/VOL001/DATA/VOL001.dat">
+          <button data-browse="dat" data-target="dat-path">Browse…</button></span>
+        </label>
+        <div id="dat-options" class="grid3" hidden>
+          <label class="field">Begin Bates column<select id="dat-key"></select></label>
+          <label class="field">Delimiter<select id="dat-delimiter">
+            <option value="concordance">Concordance (¶)</option><option value="comma">Comma</option>
+            <option value="tab">Tab</option><option value="pipe">Pipe</option></select></label>
+          <label class="field">Text qualifier<select id="dat-qualifier">
+            <option value="concordance">Concordance (þ)</option><option value="double_quote">Double quote</option>
+            <option value="none">None</option></select></label>
+        </div>
+        <p id="dat-info" class="muted"></p>
+        <button id="load-opt" class="primary">Load production</button>
+      </div>
+    </section>
+
+    <!-- Review -->
+    <section id="screen-review" class="screen" hidden>
+      <h1>Review</h1>
+      <div id="totals" class="totals"></div>
+      <h2>Load report</h2>
+      <div class="row">
+        <label>Show <select id="severity-filter">
+          <option value="all">All issues</option><option value="error">Errors</option>
+          <option value="warning">Warnings</option><option value="info">Info</option></select></label>
+        <a id="report-csv" class="button" href="/api/production/report.csv">Export CSV</a>
+      </div>
+      <table class="table" id="issues-table">
+        <thead><tr><th>Severity</th><th>Doc</th><th>Line</th><th>Message</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="no-issues" class="muted" hidden>No issues found.</p>
+
+      <h2>Documents</h2>
+      <p id="order-note" class="muted"></p>
+      <div class="row">
+        <button id="sort-name">Sort by name</button>
+        <button id="remove-selected">Remove selected</button>
+        <button id="remove-errors">Remove documents with errors</button>
+      </div>
+      <table class="table" id="docs-table">
+        <thead><tr><th></th><th>#</th><th>Source</th><th>Pages</th><th class="opt-only">Original Bates</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- Number -->
+    <section id="screen-number" class="screen" hidden>
+      <h1>Numbering</h1>
+      <div class="segmented" role="radiogroup">
+        <label><input type="radio" name="num-mode" value="renumber"> Renumber</label>
+        <label id="keep-label"><input type="radio" name="num-mode" value="keep"> Keep existing numbers</label>
+      </div>
+      <div class="grid3" id="renumber-fields">
+        <label class="field">Prefix<input data-setting="numbering.prefix" type="text" placeholder="ABC"></label>
+        <label class="field">Separator<input data-setting="numbering.separator" type="text" placeholder="_"></label>
+        <label class="field">Start at<input data-setting="numbering.start" type="number" min="0"></label>
+        <label class="field">Digits<input data-setting="numbering.padding" type="number" min="1" max="15"></label>
+        <label class="check"><input data-setting="numbering.reset_per_document" type="checkbox"> Restart the counter for each document</label>
+      </div>
+      <p class="muted">The prefix may hold {DOCNUM}, {FILENAME}, {DATE} or {FIELD:Name}.</p>
+      <ul id="numbering-problems" class="problems"></ul>
+      <h2>Sample</h2>
+      <div id="numbering-sample"></div>
+    </section>
+
+    <!-- Stamp -->
+    <section id="screen-stamp" class="screen" hidden>
+      <h1>Stamps</h1>
+      <div class="two-pane">
+        <div class="editor">
+          <div id="zone-grid" class="zone-grid"></div>
+          <div id="zone-editor">
+            <h2 id="zone-title"></h2>
+            <label class="check"><input data-zone="enabled" type="checkbox"> Stamp this zone</label>
+            <label class="field">Text<textarea data-zone="template" rows="3"></textarea></label>
+            <div class="row">
+              <select id="token-picker"><option value="">Insert a token…</option></select>
+            </div>
+            <ul id="zone-errors" class="problems"></ul>
+            <div class="grid3">
+              <label class="field">Font<select data-zone="font"><option value="sans">Sans</option><option value="serif">Serif</option><option value="mono">Mono</option></select></label>
+              <label class="field">Size (pt)<input data-zone="size_pt" type="number" min="1" max="200" step="0.5"></label>
+              <label class="field">Colour<input data-zone="color" type="color"></label>
+              <label class="field">Rotation<select data-zone="rotation">
+                <option value="0">None</option><option value="90">90° (reads upward)</option>
+                <option value="270">270° (reads downward)</option><option value="45" data-mc-only>45° (watermark)</option></select></label>
+              <label class="field">Pages<select data-zone="page_rule">
+                <option value="all">All pages</option><option value="first">First page</option>
+                <option value="last">Last page</option><option value="odd">Odd pages</option>
+                <option value="even">Even pages</option><option value="portrait">Portrait pages</option>
+                <option value="landscape">Landscape pages</option></select></label>
+              <div>
+                <label class="check"><input data-zone="bold" type="checkbox"> Bold</label>
+                <label class="check"><input data-zone="knockout" type="checkbox"> White box behind text</label>
+              </div>
+            </div>
+            <button id="copy-all">Copy this style to all zones</button>
+          </div>
+          <h2>Margins</h2>
+          <div class="segmented" role="radiogroup">
+            <label><input type="radio" name="margin-mode" value="overlay"> Stamp over the page</label>
+            <label><input type="radio" name="margin-mode" value="add_band"> Shrink the page to add a band</label>
+          </div>
+          <div class="grid3">
+            <label class="field">Edge offset (in)<input data-setting="margin.edge_offset_in" type="number" min="0" max="2" step="0.05"></label>
+            <label class="field" id="band-field">Band height (in)<input data-setting="margin.band_in" type="number" min="0.05" max="3" step="0.05"></label>
+          </div>
+        </div>
+
+        <div class="preview-pane">
+          <div class="row nav">
+            <button id="prev-doc" title="Previous document">⏮</button>
+            <button id="prev-page" title="Previous page">◀</button>
+            <span id="preview-label"></span>
+            <button id="next-page" title="Next page">▶</button>
+            <button id="next-doc" title="Next document">⏭</button>
+          </div>
+          <div class="row nav">
+            <input id="jump-bates" type="text" placeholder="Go to Bates number">
+            <button id="jump-go">Go</button>
+            <button id="jump-portrait">First portrait</button>
+            <button id="jump-landscape">First landscape</button>
+          </div>
+          <p id="preview-note" class="muted"></p>
+          <div class="preview-frame"><img id="preview-img" alt="Stamped page preview"><p id="preview-error" class="problems" hidden></p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Output -->
+    <section id="screen-output" class="screen" hidden>
+      <h1>Output</h1>
+      <div class="segmented" role="radiogroup">
+        <label><input type="radio" name="out-format" value="pdf"> PDF (one per document)</label>
+        <label><input type="radio" name="out-format" value="tiff"> TIFF (one image per page)</label>
+      </div>
+      <label class="field">Output folder (must be empty or not exist yet)
+        <span class="row"><input data-setting="output.output_dir" type="text" placeholder="Choose a folder">
+        <button data-browse="dir" data-target-setting="output.output_dir">Browse…</button></span>
+      </label>
+      <label class="field">Volume name<input data-setting="output.volume_name" type="text"></label>
+      <div id="tiff-options" class="grid3">
+        <label class="field">Images per folder<input data-setting="output.images_per_folder" type="number" min="1"></label>
+        <label class="field">DPI for PDF pages<input data-setting="output.tiff_dpi" type="number" min="72" max="1200"></label>
+        <label class="field">Colour pages<select data-setting="output.color_mode">
+          <option value="jpeg">JPG</option><option value="tiff_lzw">Colour TIFF (LZW)</option>
+          <option value="force_bw">Convert to black and white</option></select></label>
+        <label class="field">JPG quality<input data-setting="output.jpeg_quality" type="number" min="1" max="100"></label>
+        <label class="field">Black-and-white threshold (0–255)<input data-setting="output.bw_threshold" type="number" min="0" max="255"></label>
+      </div>
+      <p id="estimate" class="muted"></p>
+      <ul id="preflight-errors" class="problems"></ul>
+      <ul id="preflight-warnings" class="warnings"></ul>
+
+      <h2>Presets</h2>
+      <p class="muted">A preset saves numbering, stamps, margins and output options. It never saves the output folder.</p>
+      <div class="row">
+        <select id="preset-list"></select>
+        <button id="preset-load">Load preset</button>
+      </div>
+      <div class="row">
+        <input id="preset-name" type="text" placeholder="Preset name">
+        <button id="preset-save">Save current settings</button>
+      </div>
+    </section>
+
+    <!-- Run -->
+    <section id="screen-run" class="screen" hidden>
+      <h1>Run</h1>
+      <div id="run-summary"></div>
+      <div class="row"><button id="run-start" class="primary">Start run</button></div>
+      <div id="run-progress" hidden>
+        <div class="progress"><div class="bar" id="progress-bar"></div></div>
+        <p id="progress-text"></p>
+        <button id="run-cancel">Cancel</button>
+      </div>
+      <div id="run-result" hidden>
+        <p id="run-status" class="status"></p>
+        <div id="run-failures"></div>
+        <table class="table" id="qc-table">
+          <thead><tr><th>Check</th><th>Result</th><th>Details</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="row">
+          <button id="open-output">Open output folder</button>
+          <a id="open-qc" class="button" target="_blank" rel="noopener">Open QC report</a>
+        </div>
+        <p id="open-note" class="muted"></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog id="browser">
+  <form method="dialog" class="browser">
+    <h2 id="browser-title">Choose a file</h2>
+    <div class="row"><input id="browser-path" type="text"><button id="browser-go" type="button">Go</button></div>
+    <ul id="browser-list" class="browser-list"></ul>
+    <div class="row end">
+      <button value="cancel">Cancel</button>
+      <button id="browser-choose" type="button" class="primary" hidden>Use this folder</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

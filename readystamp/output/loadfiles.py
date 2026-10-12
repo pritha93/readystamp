@@ -118,10 +118,13 @@ def write_dat(path: Path, production: Production, settings: Settings, docs: list
 XREF_HEADER = ["DocNum", "PageInDoc", "OriginalBates", "NewBates", "SourceFile", "SourcePage", "OutputFile"]
 
 
-def source_ref(page: Page) -> str:
+def source_ref(page: Page, upload_root: Path | None = None) -> str:
     if page.opt_path is not None:
         ref = page.opt_path.replace("/", "\\")
         return ref[2:] if ref.startswith(".\\") else ref
+    if upload_root is not None and page.source_path.is_relative_to(upload_root):
+        # Uploaded files: the path as the user dropped it, not the working-folder copy.
+        return str(page.source_path.relative_to(upload_root).as_posix()).replace("/", "\\")
     return str(page.source_path)
 
 
@@ -135,7 +138,7 @@ def xref_text(production: Production, docs: list[OutputDocument], frame_counts: 
             # Page numbers are 1-based for PDFs and multi-page TIFFs; 0 for single-page images.
             multi = p.is_pdf or frame_counts.get(p.source_path, 1) > 1
             writer.writerow([num, p.index_in_doc, p.original_bates or "", p.new_bates,
-                             source_ref(p), p.source_page + 1 if multi else 0, op.rel_path])
+                             source_ref(p, production.upload_root), p.source_page + 1 if multi else 0, op.rel_path])
     return buf.getvalue()
 
 

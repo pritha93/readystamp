@@ -132,6 +132,7 @@ class Production(BaseModel):
     documents: list[Document] = Field(default_factory=list)
     load_report: LoadReport = Field(default_factory=LoadReport)
     dat_columns: list[str] = Field(default_factory=list)   # loaded DAT header, in file order
+    upload_root: Path | None = None   # loose files uploaded through the UI: the folder they were copied to
 
     def pages(self):
         for doc in self.documents:
