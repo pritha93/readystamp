@@ -1,0 +1,93 @@
+name: Build desktop app
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows
+            exe: ReadyStamp.exe
+          - os: macos-latest
+            label: Mac
+            exe: ReadyStamp
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install . pyinstaller
+
+      - name: Build app
+        run: pyinstaller --noconfirm packaging/readystamp.spec
+
+      - name: Check the app starts and stamps the sample production
+        run: |
+          ./dist/${{ matrix.exe }} run \
+            -i sample_data/2_production_with_load_file/VOL001/DATA/VOL001.opt \
+            -o smoke_out
+          ./dist/${{ matrix.exe }} ui --port 8765 --no-browser &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8765/ > /dev/null; then echo "web screen is up"; break; fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8765/ > /dev/null
+          curl -sf http://127.0.0.1:8765/static/app.js > /dev/null
+
+      - name: Package
+        run: |
+          mkdir -p "pkg/ReadyStamp"
+          cp "dist/${{ matrix.exe }}" pkg/ReadyStamp/
+          cp -R sample_data pkg/ReadyStamp/
+          cp packaging/HOW-TO-RUN.txt pkg/ReadyStamp/
+          cd pkg
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a -tzip "../ReadyStamp-${{ matrix.label }}.zip" ReadyStamp > /dev/null
+          else
+            ditto -c -k --keepParent ReadyStamp "../ReadyStamp-${{ matrix.label }}.zip"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ReadyStamp-${{ matrix.label }}
+          path: ReadyStamp-${{ matrix.label }}.zip
+
+  release:
+    # Every change to main refreshes the "latest" download page.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish to the Releases page
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest out/*.zip \
+            --target "${{ github.sha }}" \
+            --title "ReadyStamp Lite (latest build)" \
+            --notes "Download ReadyStamp-Windows.zip for Windows or ReadyStamp-Mac.zip for Mac. Unzip it and read HOW-TO-RUN.txt. No Python install needed."
