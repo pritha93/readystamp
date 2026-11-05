@@ -70,31 +70,67 @@ def _block_mask(block: Block, k: float) -> Image.Image:
     return mask
 
 
-def draw_blocks(canvas: Image.Image, blocks: list[Block], dpi: int, force_black: bool) -> None:
-    k = dpi / 72
-    draw = ImageDraw.Draw(canvas)
+def _ink(block: Block, mode: str, force_black: bool):
+    if force_black:
+        return 0 if mode == "L" else (0, 0, 0)
+    ink = tuple(round(c * 255) for c in block.color)
+    if mode == "L":
+        return round(0.299 * ink[0] + 0.587 * ink[1] + 0.114 * ink[2])
+    return ink
+
+
+def _paste_ink(canvas: Image.Image, block: Block, k: float, force_black: bool) -> None:
+    mask = _block_mask(block, k)
+    if block.opacity < 1:
+        mask = mask.point(lambda v: round(v * block.opacity))
+    # The mask's centre is the block's centre (its margins are symmetric).
+    x = round(block.center[0] * k - (mask.width - 1) / 2)
+    y = round(block.center[1] * k - (mask.height - 1) / 2)
+    canvas.paste(_ink(block, canvas.mode, force_black), (x, y), mask)
+
+
+def _knockout(canvas: Image.Image, block: Block, k: float) -> None:
     white = 255 if canvas.mode == "L" else (255, 255, 255)
+    ImageDraw.Draw(canvas).polygon([(x * k, y * k) for x, y in block.corners(block.knockout_pad)], fill=white)
+
+
+def draw_blocks(canvas: Image.Image, blocks: list[Block], dpi: int, force_black: bool) -> None:
+    """Draw blocks on top of `canvas`, each at its own opacity."""
+    k = dpi / 72
     for block in blocks:
         if block.knockout:
-            draw.polygon([(x * k, y * k) for x, y in block.corners(block.knockout_pad)], fill=white)
-        if force_black:
-            ink = 0 if canvas.mode == "L" else (0, 0, 0)
-        else:
-            ink = tuple(round(c * 255) for c in block.color)
-            if canvas.mode == "L":
-                ink = round(0.299 * ink[0] + 0.587 * ink[1] + 0.114 * ink[2])
-        mask = _block_mask(block, k)
-        # The mask's centre is the block's centre (its margins are symmetric).
-        x = round(block.center[0] * k - (mask.width - 1) / 2)
-        y = round(block.center[1] * k - (mask.height - 1) / 2)
-        canvas.paste(ink, (x, y), mask)
+            _knockout(canvas, block, k)
+        _paste_ink(canvas, block, k, force_black)
+
+
+def _behind_layer(size: tuple[int, int], mode: str, blocks: list[Block], dpi: int,
+                  force_black: bool) -> Image.Image:
+    """White layer with the behind blocks drawn in; multiplying it into a page puts them under its content."""
+    layer = Image.new(mode, size, 255 if mode == "L" else (255, 255, 255))
+    k = dpi / 72
+    for block in blocks:
+        _paste_ink(layer, block, k, force_black)
+    return layer
+
+
+def _flatten(img: Image.Image) -> Image.Image:
+    """Transparent areas of an image become white paper, so a watermark behind them shows."""
+    if img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info):
+        rgba = img.convert("RGBA")
+        paper = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+        return Image.alpha_composite(paper, rgba).convert("RGB")
+    return img
 
 
 def stamp_raster(img: Image.Image, dpi: int, kind: RasterKind, blocks: list[Block], settings: Settings,
                  page_size_pt: tuple[float, float]) -> Image.Image:
-    """Return the stamped page: mode '1' for black-and-white, 'RGB' for colour."""
+    """Return the stamped page: mode '1' for black-and-white, 'RGB' for colour.
+
+    Blocks marked `behind` go under the page: they are multiplied into it, so they show through
+    white and light areas and never cover dark content. Opacity below 1 makes a block translucent.
+    """
     work_mode = "L" if kind == "bw" else "RGB"
-    base = img.convert(work_mode)
+    base = _flatten(img).convert(work_mode)
     if settings.margin.mode == "add_band":
         k = dpi / 72
         canvas = Image.new(work_mode, base.size, 255 if work_mode == "L" else (255, 255, 255))
@@ -103,11 +139,36 @@ def stamp_raster(img: Image.Image, dpi: int, kind: RasterKind, blocks: list[Bloc
         canvas.paste(base.resize((box[2] - box[0], box[3] - box[1]), Image.Resampling.LANCZOS), box[:2])
     else:
         canvas = base
-    draw_blocks(canvas, blocks, dpi, force_black=(kind == "bw"))
-    if kind == "bw":
-        threshold = settings.output.bw_threshold
-        return canvas.point(lambda v: 255 if v >= threshold else 0).convert("1")
-    return canvas
+    behind = [b for b in blocks if b.behind]
+    front = [b for b in blocks if not b.behind]
+
+    if kind == "color":
+        if behind:
+            canvas = ImageChops.multiply(canvas, _behind_layer(canvas.size, "RGB", behind, dpi, False))
+        draw_blocks(canvas, front, dpi, force_black=False)
+        return canvas
+
+    # Black and white: solid stamps go through the threshold as before. Behind and translucent
+    # stamps are drawn as grey on their own layer and dithered, so their lightness survives as a
+    # dot pattern instead of vanishing at the threshold.
+    k = dpi / 72
+    soft_front = [b for b in front if b.opacity < 1]
+    for block in front:
+        if block.knockout:
+            _knockout(canvas, block, k)
+        if block.opacity >= 1:
+            _paste_ink(canvas, block, k, force_black=True)
+    threshold = settings.output.bw_threshold
+    out = canvas.point(lambda v: 255 if v >= threshold else 0)
+    if behind or soft_front:
+        layer = _behind_layer(canvas.size, "L", behind, dpi, True)
+        for block in front:                      # front white boxes hide what is behind them
+            if block.knockout:
+                _knockout(layer, block, k)
+        for block in soft_front:
+            _paste_ink(layer, block, k, force_black=True)
+        out = ImageChops.darker(out, layer.convert("1").convert("L"))
+    return out.convert("1")
 
 
 def stamp_for_tiff(production: Production, doc: Document, page: Page, settings: Settings,

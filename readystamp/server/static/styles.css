@@ -76,6 +76,8 @@ input.invalid, textarea.invalid { border-color: var(--error); }
 .field .row { margin: 0; flex-wrap: nowrap; }
 .field .error { color: var(--error); font-size: 13px; }
 .check { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
+.hint { display: block; color: var(--muted); font-size: 12px; }
+.check:has(input:disabled) { color: var(--disabled); }
 .grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0 16px; align-items: end; }
 
 .messages { border: 1px solid var(--error); background: var(--error-bg); color: var(--error); padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
