@@ -217,7 +217,9 @@ class ZoneSettings(_Strict):
     bold: bool = False
     color: str = "#000000"                # forced to black for black-and-white TIFF output
     rotation: Literal[0, 90, 270, 45] = 0  # 45 allowed only in MC
-    knockout: bool = False                # white box behind the text
+    knockout: bool = False                # white box behind the text (ignored when behind)
+    opacity: float = Field(default=1.0, ge=0.05, le=1)   # 1 = solid; lower lets the page show through
+    behind: bool = False                  # drawn under the page content (multiply blend), like a watermark
     page_rule: Literal["all", "first", "last", "odd", "even", "portrait", "landscape"] = "all"
 
     @field_validator("color")
@@ -233,6 +235,9 @@ def default_zones() -> dict[ZoneId, ZoneSettings]:
     zones = {z: ZoneSettings() for z in ZoneId}
     zones[ZoneId.BR] = ZoneSettings(enabled=True, template="{BATES}")
     zones[ZoneId.BL] = ZoneSettings(enabled=True, template="CONFIDENTIAL")
+    # The watermark zone starts off, but set up to sit behind the page and let it show through.
+    zones[ZoneId.MC] = ZoneSettings(template="CONFIDENTIAL", size_pt=72, bold=True, color="#808080",
+                                    rotation=45, opacity=0.35, behind=True)
     return zones
 
 

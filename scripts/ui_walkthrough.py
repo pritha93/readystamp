@@ -126,6 +126,22 @@ with sync_playwright() as pw:
     page.wait_for_timeout(1000)
     shot("06_stamp")
 
+    # watermark: starts behind the page at 35%; opacity slider and white box follow it
+    page.click('.zone:has-text("MC")')
+    expect(page.locator('[data-zone="behind"]')).to_be_checked()
+    expect(page.locator("#opacity-value")).to_have_text("35%")
+    expect(page.locator('[data-zone="knockout"]')).to_be_disabled()
+    page.check('[data-zone="enabled"]')
+    page.locator('[data-zone="opacity"]').fill("0.6")
+    expect(page.locator("#opacity-value")).to_have_text("60%")
+    page.wait_for_timeout(1500)
+    assert page.evaluate("S.settings.zones.MC.opacity") == 0.6
+    shot("06b_watermark")
+    page.uncheck('[data-zone="behind"]')
+    expect(page.locator('[data-zone="knockout"]')).to_be_enabled()
+    page.check('[data-zone="behind"]')
+    page.uncheck('[data-zone="enabled"]')
+
     page.click('.step[data-screen="output"]')
     expect(page.locator('input[name="out-format"][value="pdf"]')).to_be_checked()
     expect(page.locator("#tiff-options")).to_be_hidden()
