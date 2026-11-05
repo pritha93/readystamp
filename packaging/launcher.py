@@ -8,8 +8,19 @@ import multiprocessing
 import sys
 
 
+def _utf8_console() -> None:
+    # Windows consoles default to an old code page that cannot print
+    # characters such as "↔" used in QC messages.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main() -> None:
     multiprocessing.freeze_support()
+    _utf8_console()
     if len(sys.argv) > 1:
         from readystamp.cli import app
 
