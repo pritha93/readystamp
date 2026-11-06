@@ -8,7 +8,7 @@ const ZONE_NAMES = {
   TL: "Top left", TC: "Top centre", TR: "Top right", ML: "Middle left", MC: "Middle centre",
   MR: "Middle right", BL: "Bottom left", BC: "Bottom centre", BR: "Bottom right",
 };
-const STYLE_KEYS = ["font", "size_pt", "bold", "color", "knockout", "page_rule"];
+const STYLE_KEYS = ["font", "size_pt", "bold", "color", "knockout", "opacity", "behind", "page_rule"];
 const SCREENS = ["load", "review", "number", "stamp", "output", "run"];
 
 const S = {
@@ -550,7 +550,17 @@ function renderZoneEditor() {
     else input.value = String(v);
   }
   $("[data-mc-only]").hidden = S.zone !== "MC";
+  renderZoneLayering();
   renderZoneErrors();
+}
+
+function renderZoneLayering() {
+  const zs = S.settings.zones[S.zone];
+  $("#opacity-value").textContent = `${Math.round(zs.opacity * 100)}%`;
+  // A white box would hide nothing under the page, so it does not apply to a stamp behind it.
+  const knockout = $('[data-zone="knockout"]');
+  knockout.disabled = !!zs.behind;
+  knockout.closest("label").title = zs.behind ? "Not used when the stamp is behind the page" : "";
 }
 
 function renderZoneErrors() {
@@ -563,7 +573,7 @@ function editZone(input) {
   let value;
   if (input.type === "checkbox") value = input.checked;
   else if (key === "size_pt") value = input.value === "" ? "" : Number(input.value);
-  else if (key === "rotation") value = Number(input.value);
+  else if (key === "rotation" || key === "opacity") value = Number(input.value);
   else value = input.value;
   S.settings.zones[S.zone][key] = value;
   // Typing into a zone's text turns it on; clearing it does not turn it off.
@@ -573,6 +583,7 @@ function editZone(input) {
   }
   S.edits += 1;
   renderZoneGrid();
+  renderZoneLayering();
   scheduleSave();
 }
 
@@ -592,7 +603,7 @@ function copyStyleToAll() {
   S.edits += 1;
   renderZoneGrid();
   scheduleSave();
-  showMessages([`Copied the font, size, bold, colour, white box and page rule of ${S.zone} to every zone.`], true);
+  showMessages([`Copied the font, size, bold, colour, white box, opacity, layering and page rule of ${S.zone} to every zone.`], true);
 }
 
 function docs() { return S.production ? S.production.documents : []; }

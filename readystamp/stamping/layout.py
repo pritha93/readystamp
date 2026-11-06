@@ -61,6 +61,8 @@ class Block:
     color: tuple[float, float, float]   # 0..1
     rotation: int                        # degrees counter-clockwise as displayed
     knockout: bool
+    opacity: float                       # 0..1
+    behind: bool                         # under the page content (multiply blend)
     width: float                         # local ink box: (0, 0) to (width, height)
     height: float
     center: tuple[float, float]          # where the local box centre lands on the page
@@ -176,7 +178,8 @@ def layout_zone(zone: ZoneId, zs: ZoneSettings, text: str, page_size: tuple[floa
     row = _ROWS[zone.value[0]]
     cy = {"top": off + fh / 2, "middle": ph / 2, "bottom": ph - off - fh / 2}[row]
     return Block(zone=zone, lines=tuple(lines), font_file=path, size_pt=size, color=hex_to_rgb(zs.color),
-                 rotation=rotation, knockout=zs.knockout, width=width, height=height, center=(cx, cy))
+                 rotation=rotation, knockout=zs.knockout and not zs.behind,
+                 opacity=zs.opacity, behind=zs.behind, width=width, height=height, center=(cx, cy))
 
 
 def page_blocks(production: Production, doc: Document, page: Page, settings: Settings,

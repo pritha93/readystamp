@@ -4,3 +4,6 @@ __pycache__/
 build/
 dist/
 /fixtures_out/
+smoke_out/
+pkg/
+.venv/

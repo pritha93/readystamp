@@ -59,8 +59,35 @@ def _font_name(block: Block) -> str:
     return "RS" + block.font_file.stem.replace("Liberation", "").replace("-", "")
 
 
+def _behind_state(page: pymupdf.Page, opacity: float) -> str:
+    """Name of a graphics state on `page` that multiplies at `opacity`, adding it if needed."""
+    doc = page.parent
+    name = f"RSmul{round(opacity * 100):03d}"
+    # Find Resources/ExtGState, following indirect references; a missing dict is created.
+    xref, prefix = page.xref, ""
+    for key in ("Resources", "ExtGState"):
+        kind, value = doc.xref_get_key(xref, prefix + key)
+        if kind == "xref":
+            xref, prefix = int(value.split()[0]), ""
+        else:
+            prefix += key + "/"
+    doc.xref_set_key(xref, prefix + name, f"<</Type/ExtGState/BM/Multiply/ca {opacity:g}/CA {opacity:g}>>")
+    return name
+
+
+def _wrap_new_streams(page: pymupdf.Page, before: int, prefix: str) -> None:
+    """Run the content streams added since `before` inside q <prefix> ... Q."""
+    doc = page.parent
+    for xref in page.get_contents()[before:]:
+        doc.update_stream(xref, b"q " + prefix.encode() + b"\n" + doc.xref_stream(xref) + b"\nQ\n")
+
+
 def draw_blocks(page: pymupdf.Page, blocks: list[Block]) -> None:
-    """Draw stamp blocks given in displayed coordinates onto a (possibly /Rotate'd) PDF page."""
+    """Draw stamp blocks given in displayed coordinates onto a (possibly /Rotate'd) PDF page.
+
+    A block marked `behind` is multiplied into the page, so it shows through white and light
+    areas but never covers dark content, even on scanned pages that are one opaque image.
+    """
     derot = page.derotation_matrix
     rot = page.rotation_matrix
     rot_linear = pymupdf.Matrix(rot.a, rot.b, rot.c, rot.d, 0, 0)
@@ -71,10 +98,15 @@ def draw_blocks(page: pymupdf.Page, blocks: list[Block]) -> None:
         # morph works in PDF (y-up) space, so a positive angle turns text counter-clockwise as
         # displayed; composing with the page's rotation matrix keeps it upright on /Rotate pages.
         morph = pymupdf.Matrix(block.rotation) * rot_linear
+        before = len(page.get_contents())
+        opacity = {} if block.behind or block.opacity >= 1 else {"fill_opacity": block.opacity}
         for line in block.lines:
             point = pymupdf.Point(block.to_page(line.x, line.y)) * derot
             page.insert_text(point, line.text, fontsize=block.size_pt, fontname=_font_name(block),
-                             fontfile=str(block.font_file), color=block.color, morph=(point, morph))
+                             fontfile=str(block.font_file), color=block.color, morph=(point, morph),
+                             **opacity)
+        if block.behind:
+            _wrap_new_streams(page, before, f"/{_behind_state(page, block.opacity)} gs")
 
 
 def stamp_page(out: pymupdf.Document, sources: SourceCache, production: Production, doc: Document,

@@ -1,0 +1,37 @@
+ReadyStamp Lite - how to run
+============================
+
+Windows
+  1. Unzip this folder (right-click the .zip > Extract All).
+  2. Double-click ReadyStamp.exe.
+     If Windows shows "Windows protected your PC", click "More info"
+     and then "Run anyway". This appears because the app is not signed.
+  3. A black window opens and your web browser shows ReadyStamp.
+     Keep the black window open while you work. Close it to quit.
+
+Mac
+  1. Unzip this folder (double-click the .zip).
+  2. Right-click (or Control-click) ReadyStamp and choose Open, then Open
+     again. You only need to do this the first time; after that a
+     double-click works.
+     If the Mac still refuses: open Terminal, type
+        xattr -dr com.apple.quarantine
+     followed by a space, drag the ReadyStamp file into the Terminal
+     window, and press Return. Then try again.
+  3. A Terminal window opens and your web browser shows ReadyStamp.
+     Keep it open while you work. Close it to quit.
+
+  The Mac app is built for Apple Silicon Macs (M1 and newer). On an
+  older Intel Mac, use "Run from source" below instead.
+
+Run from source (Mac, any model)
+  1. Install Python 3.11 or newer from python.org if you don't have it.
+  2. Download the source code ZIP from GitHub and unzip it.
+  3. Double-click packaging/run-from-source-mac.command (right-click >
+     Open the first time). It sets itself up and opens ReadyStamp.
+     Or in Terminal, from the unzipped folder:
+        python3 -m venv .venv && .venv/bin/pip install .
+        .venv/bin/readystamp ui
+
+No Python or other install is needed for the ready-made apps. Example documents to try are in
+the sample_data folder.
