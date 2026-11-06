@@ -21,5 +21,17 @@ Mac
   3. A Terminal window opens and your web browser shows ReadyStamp.
      Keep it open while you work. Close it to quit.
 
-No Python or other install is needed. Example documents to try are in
+  The Mac app is built for Apple Silicon Macs (M1 and newer). On an
+  older Intel Mac, use "Run from source" below instead.
+
+Run from source (Mac, any model)
+  1. Install Python 3.11 or newer from python.org if you don't have it.
+  2. Download the source code ZIP from GitHub and unzip it.
+  3. Double-click packaging/run-from-source-mac.command (right-click >
+     Open the first time). It sets itself up and opens ReadyStamp.
+     Or in Terminal, from the unzipped folder:
+        python3 -m venv .venv && .venv/bin/pip install .
+        .venv/bin/readystamp ui
+
+No Python or other install is needed for the ready-made apps. Example documents to try are in
 the sample_data folder.
